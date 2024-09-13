@@ -1,0 +1,204 @@
+﻿@page "/"
+@using System.Security.Claims
+@* @using Course.BlazorWasm.Client.StateProvider *@
+@* @inject CustomAuthenticationStateProvider  StateProvider *@
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@using  OnlineCourses.BlazorWasm.Domain.Entity;
+@using OnlineCourses.BlazorWasm.Domain.Entity.Dto.UserDto
+@using OnlineCourses.BlazorWasm.Services.Abstractions
+@inject NavigationManager navigationManager
+@inject IUserService userService
+@inject ICourseService courseService
+
+
+<h1> E-Learning Courses </h1>
+<br />
+<h3> Welcome @_name </h3>
+<h5> Click the button below to Register Courses </h5>
+<br />
+<div>
+    <button @onclick="() => ManageCourse(userId)" class="btn btn-outline-info">Register Course <i class="bi bi-person-add"></i></button>
+</div>
+@* view a list of available courses. *@
+<div>
+    @if (loggedUser?.courses.Count() > 0)
+    {
+         <div class="row">
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered">
+                        <thead class="course-admin-header-table">
+                            <tr>
+                                <th>Name </th>
+                                <th>Description</th>
+                                <th>Select</th>
+                               
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var course in loggedUser.courses)
+                            {
+                             
+                                <tr class="table-rows">
+                                    <td>
+                                        @course.Name
+                                    </td>
+                                    <td>
+                                        @course.Description
+                                    </td>
+                                    <td>
+                                       <input  />
+                                    </td>
+                                   
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="6">
+                                   @*  <Pagination Metadata="Metadata" Spread="10" SelectedPage="PageSelected" /> *@
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+        </div>
+    }
+    else
+    {
+        <div> @_enrolledMessage  </div>
+    }
+
+
+</div>
+
+<p>@_googleId</p>
+<p>@_name</p>
+<p>@userId</p>
+
+
+@if (_claims.Count() > 0)
+{
+    <table class="table">
+        @foreach (var claim in _claims)
+        {
+            <tr>
+                <td>@claim.Type</td>
+                <td>@claim.Value</td>
+            </tr>
+        }
+    </table>
+}
+
+
+
+@code{
+    public string coursename { get; set; } = "";
+    private string _enrolledMessage;
+    private string _googleId;
+    private string _email;
+
+    private string _name;
+
+    private bool isChecked;
+
+
+    List<Course> Courses;
+
+    public Guid userId;
+    private User loggedUser;
+    private IEnumerable<Claim> _claims = Enumerable.Empty<Claim>();
+    private List<ClaimsIdentity> ids;
+
+    private List<Course> userCourse;
+
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await GetClaimsPrincipalData();
+        await base.OnParametersSetAsync();
+    }
+
+
+    private void CheckboxChanged(ChangeEventArgs e)
+    {
+        // get the checkbox state
+        var value = e.Value;
+        //  Console.WriteLine($"Checkbox changed {IsChecked}");
+    }
+
+    private void addCourseToUser(Guid id)
+    {
+
+    }
+
+    private async Task GetClaimsPrincipalData()
+    {
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        ids = authState.User.Identities.ToList();// FindFirstValue(ClaimTypes.Email)
+
+
+        if (user.Identity.IsAuthenticated)
+        {
+            _googleId = user.FindFirst(c => c.Type == "jti")?.Value ?? "No Name found ";
+            _name = user.FindFirst(c => c.Type == "name")?.Value??"No Name found ";
+            // var jti = user.FindFirst(c => c.Type == "jti")?.Value ?? "No Name found ";
+            // //search if the user exist in the application or else create one 
+            var appuser = (await userService.GetUserGoogleById(_googleId, _name));
+            if ( appuser is not null)
+            {
+                loggedUser = appuser;
+                userId = loggedUser.Id;
+            }
+            
+            // _authMessage = $"{user.Identity.GetType().FullName} is authenticated.";
+             _claims = user.Claims;
+            // _courseId = $"course Id: {user.FindFirst(c => c.Type == "sub")?.Value}";
+
+        }
+        else
+        {
+            _enrolledMessage = "You are not enrolled in any course, Kindly click the button above";
+        }
+
+       
+    }
+
+    private void ManageCourse(Guid id)
+    {
+        navigationManager.NavigateTo("courses/" + id);
+    }
+
+    private async Task<User> CreateUser(string id, string Name )
+    {
+        var request = new CreateUserRequest()
+        {
+            Name = Name,
+            GoogleId = id
+
+        };
+        var user = await userService.CreateUser(request);
+        return user;
+    }
+    // protected override async Task OnInitializedAsync()
+    // {
+    //    // var authenticationState = await StateProvider.GetAuthenticationStateAsync();
+
+    //     // if (authenticationState is not null)
+    //     // {
+    //     //     // var course = authenticationState.course.Identity;//.Claims.;
+
+    //     //     // coursename = course?.Name?? "";
+    //     //     // coursename = authenticationState.course.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value ?? "";
+    //     // }
+
+    //     // var authState = await stateprovider;
+    //     // var course = authState.course;
+
+    //     // if (course.Identity.IsAuthenticated)
+    //     // {
+    //     //     Console.WriteLine($"{course.Identity.Name} is authenticated.");
+    //     // }
+    // }
+}

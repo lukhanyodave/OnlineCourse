@@ -1,0 +1,163 @@
+﻿@page "/courses/{userId:guid}"
+@inject IUserService userService
+@inject ICourseService courseService
+
+@using OnlineCourses.BlazorWasm.Domain.Entity;
+@using OnlineCourses.BlazorWasm.Client.Shared
+@using OnlineCourses.BlazorWasm.Domain.Entity.Dto.UserDto
+@using OnlineCourses.BlazorWasm.Services.Abstractions
+
+@inject NavigationManager navigationManager
+
+<h3>Register Courses</h3>
+
+@* view a list of courses they have enrolled in*@
+
+    @if (Courses.Count > 0)
+    {
+         <div class="row">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead class="course-admin-header-table">
+                                <tr>
+                                    <th>Name </th>
+                                    <th>Description</th>
+                                    <th>Action</th>
+                               
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var course in Courses)
+                            {
+                              @*  @if(EnrolledCoures.Contains(course.Id)) {@course.enrolled is true;} *@
+                                    <tr class="table-rows">
+                                        <td>
+                                            @course.Name
+                                        </td>
+                                        <td>
+                                            @course.Description
+                                        </td>
+                                        <td>
+                                            <input 
+                                                class="custom-checkbox" 
+                                                bind="selectedCourse = course.Id"
+                                                type="checkbox" 
+                                                @onchange=CheckboxClicked />
+                                        </td>
+                                   
+                                    </tr>
+                            }
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="6">
+                                     @*    <Pagination Metadata="Metadata" Spread="10" SelectedPage="PageSelected" /> *@
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+         </div>
+    }
+    <div class="row">
+         <div class="col-3">
+            <button @onclick="() => UpdateUser()" class="user-details-edit-back-user-button"> Submit </button>
+        </div>
+        <div class="col-3">
+            <button @onclick="() => Back()" class="user-details-edit-back-user-button">BACK</button>
+        </div>
+
+    </div>
+
+
+
+@code{
+
+    bool isLoading;
+    private User CurrentUser = new User();
+    List<Course> Courses = new List<Course>();
+    List<Guid> EnrolledCoures = new List<Guid>();
+    Guid selectedCourse = new Guid();
+    [Parameter] public Guid userId { get; set; }
+
+    [CascadingParameter]
+    public ErrorHandler? ErrorHandler { get; set; }
+
+    protected async override Task OnParametersSetAsync()
+    {
+        try
+        {
+            isLoading = true;
+            //Get list of courses
+            Courses = await courseService.GetAllCourses();
+            // Get the user.
+            CurrentUser = await userService.GetUser(userId);
+            var usercourses = CurrentUser.courses.Select(x => x.Id).ToList();
+            if (usercourses is not null)
+            {
+                EnrolledCoures = usercourses;
+            }
+            // Get the user courses.
+            //List<Guid> couseIds = new List<Guid> { CurrentUser.courses( x => x.) };
+
+            // if (currentUser.cources?.Count > 0)
+            //     storeIds.AddRange(currentUser.stores);
+
+
+
+            //var stores = await productService.GetLocations(storeIds);
+
+            // defaultStore = stores.First(s => s.Id == currentUser.defaultStoreId);
+            // additionalStores = stores.Where(s => s.Id != currentUser.defaultStoreId).OrderBy(s => s.Id).ToList();
+
+            // // Get the audit trail users
+            // creator = await userService.GetUser(currentUser.createdBy);
+
+            // if (!string.IsNullOrEmpty(currentUser.lastUpdatedBy))
+            //     updatedBy = await userService.GetUser(currentUser.lastUpdatedBy);
+        }
+        catch (Exception ex)
+        {
+            //ErrorHandler.HandleException(ex);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void CheckboxClicked(ChangeEventArgs e)
+    {
+        if (Convert.ToBoolean(e.Value))
+        {
+            if (!EnrolledCoures.Contains(selectedCourse))
+            {
+                EnrolledCoures.Add(selectedCourse);
+            }
+        }
+        else
+        {
+            if (EnrolledCoures.Contains(selectedCourse))
+            {
+                EnrolledCoures.Remove(selectedCourse);
+            }
+        }
+    }
+
+    public async Task  UpdateUser()
+    {
+        var user = new UpdateUserRequest()
+        {   
+                last_updated_by = CurrentUser.FullName,
+                Id = userId,
+                courses = EnrolledCoures
+        };
+        await userService.Update(user);
+    }
+
+
+    public void Back()
+    {
+        navigationManager.NavigateTo("/");
+    }
+}
